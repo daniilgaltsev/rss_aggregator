@@ -46,3 +46,20 @@ func handlePostUsers(w http.ResponseWriter, r *http.Request, DB *database.Querie
 
 	respondWithJson(w, http.StatusCreated, user)
 }
+
+
+func handleGetUsers(w http.ResponseWriter, r *http.Request, DB *database.Queries) {
+	apiKey, err := getAuthorizationHeader(r, "ApiKey")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid authorization header")
+		return
+	}
+	
+	user, err := DB.GetUser(context.Background(), apiKey)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, user)
+}
