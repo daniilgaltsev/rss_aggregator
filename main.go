@@ -1,7 +1,8 @@
 package main
 
-
+import _ "github.com/lib/pq"
 import (
+	"database/sql"
     "fmt"
 	"net/http"
 	"os"
@@ -9,23 +10,49 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
+
+	"github.com/daniilgaltsev/rss_aggregator/internal/database"
 )
 
-func main() {
-	fmt.Println("Starting the server...")
+type apiConfig struct {
+	DB *database.Queries
+}
 
+func (config *apiConfig) postUsersHandler(w http.ResponseWriter, r *http.Request) {
+	handlePostUsers(w, r, config.DB)
+}
+
+func main() {
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("Error loading .env file")
 		os.Exit(1)
 	}
 
+	fmt.Println("Connecting to the database...")
+	dbURL := os.Getenv("DBURL")
+	if dbURL == "" {
+		fmt.Println("DBURL not set")
+		os.Exit(1)
+	}
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		fmt.Println("Error connecting to the database:", err)
+		os.Exit(1)
+	}
+	dbQueries := database.New(db)
+
+	fmt.Println("Starting the server...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		fmt.Println("PORT not set")
 		os.Exit(1)
 	}
 
+	config := apiConfig{
+		DB: dbQueries,
+	}
 	router := chi.NewRouter()
 	router.Use(cors.Handler(
 		cors.Options{
@@ -41,6 +68,7 @@ func main() {
 	v1Router := chi.NewRouter()
 	v1Router.Get("/readiness", readinessHandler)
 	v1Router.Get("/err", errHandler)
+	v1Router.Post("/users", config.postUsersHandler)
 	router.Mount("/v1", v1Router)
 
 
