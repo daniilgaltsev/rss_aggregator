@@ -111,3 +111,26 @@ func handleDeleteFeedFollows(w http.ResponseWriter, r *http.Request, DB *databas
 
 	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 }
+
+
+func handleGetFeedFollows(w http.ResponseWriter, r *http.Request, DB *database.Queries) {
+	apiKey, err := getAuthorizationHeader(r, "ApiKey")
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid authorization header")
+		return
+	}
+
+	user, err := DB.GetUser(context.Background(), apiKey)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	follows, err := DB.GetFollowsForUser(context.Background(), user.ID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, follows)
+}

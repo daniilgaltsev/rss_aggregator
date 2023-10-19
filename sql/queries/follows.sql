@@ -8,3 +8,6 @@ SELECT * FROM follows WHERE id = $1;
 
 -- name: DeleteFollow :exec
 DELETE FROM follows WHERE id = $1;
+
+-- name: GetFollowsForUser :many
+SELECT * FROM follows WHERE user_id = $1;

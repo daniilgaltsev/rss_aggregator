@@ -70,3 +70,36 @@ func (q *Queries) GetFollow(ctx context.Context, id uuid.UUID) (Follow, error) {
 	)
 	return i, err
 }
+
+const getFollowsForUser = `-- name: GetFollowsForUser :many
+SELECT id, created_at, updated_at, feed_id, user_id FROM follows WHERE user_id = $1
+`
+
+func (q *Queries) GetFollowsForUser(ctx context.Context, userID uuid.UUID) ([]Follow, error) {
+	rows, err := q.db.QueryContext(ctx, getFollowsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Follow
+	for rows.Next() {
+		var i Follow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.FeedID,
+			&i.UserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
