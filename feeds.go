@@ -54,3 +54,15 @@ func handlePostFeeds(w http.ResponseWriter, r *http.Request, DB *database.Querie
 
 	respondWithJson(w, http.StatusCreated, feed)
 }
+
+func handleGetFeeds(w http.ResponseWriter, r *http.Request, DB *database.Queries) {
+
+	feeds, err := DB.GetFeeds(context.Background())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Internal server error")
+		fmt.Println(err)
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, feeds)
+}
