@@ -52,7 +52,19 @@ func handlePostFeeds(w http.ResponseWriter, r *http.Request, DB *database.Querie
 		return
 	}
 
-	respondWithJson(w, http.StatusCreated, feed)
+	feedFollow, err := follow(feed.ID, user.ID, DB)
+	if err != nil {
+		feedFollow = database.Follow{}
+	}
+	response := struct {
+		Feed database.Feed `json:"feed"`
+		FeedFollow database.Follow `json:"feed_follow"`
+	}{
+		Feed: feed,
+		FeedFollow: feedFollow,
+	}	
+
+	respondWithJson(w, http.StatusCreated, response)
 }
 
 func handleGetFeeds(w http.ResponseWriter, r *http.Request, DB *database.Queries) {
