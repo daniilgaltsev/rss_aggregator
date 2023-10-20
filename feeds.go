@@ -57,10 +57,10 @@ func handlePostFeeds(w http.ResponseWriter, r *http.Request, DB *database.Querie
 		feedFollow = database.Follow{}
 	}
 	response := struct {
-		Feed database.Feed `json:"feed"`
+		Feed Feed `json:"feed"`
 		FeedFollow database.Follow `json:"feed_follow"`
 	}{
-		Feed: feed,
+		Feed: databaseFeedToFeed(feed),
 		FeedFollow: feedFollow,
 	}	
 
@@ -76,5 +76,5 @@ func handleGetFeeds(w http.ResponseWriter, r *http.Request, DB *database.Queries
 		return
 	}
 
-	respondWithJson(w, http.StatusOK, feeds)
+	respondWithJson(w, http.StatusOK, databaseFeedsToFeeds(feeds))
 }
