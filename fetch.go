@@ -2,14 +2,18 @@ package main
 
 
 import (
+	"database/sql"
 	"context"
 	"encoding/xml"
 	"net/http"
 	"io"
 	"errors"
 	"fmt"
+	"time"
 	"sync"
 	"sync/atomic"
+
+	"github.com/google/uuid"
 
 	"github.com/daniilgaltsev/rss_aggregator/internal/database"
 )
@@ -86,6 +90,20 @@ func fetchFeedFromUrl(url string) (string, error) {
 
 
 func updateFeeds(n int32, DB *database.Queries) error {
+	var layouts = []string{
+		time.Layout,
+		time.ANSIC,
+		time.UnixDate,
+		time.RubyDate,
+		time.RFC822,
+		time.RFC822Z,
+		time.RFC850,
+		time.RFC1123,
+		time.RFC1123Z,
+		time.RFC3339,
+		time.RFC3339Nano,
+	}
+
 	context := context.Background()
 	feeds, err := DB.GetNextFeedsToFetch(context, n)
 	if err != nil {
@@ -104,12 +122,49 @@ func updateFeeds(n int32, DB *database.Queries) error {
 				DB.UpdateLastFetchedAt(context, feed.ID)
 				return
 			}
-			fmt.Println("-----(not thread safe logging of a fetched feed)----")
-			fmt.Println(rss.Channel.Title)
-			fmt.Println(" Number of items:", len(rss.Channel.Item))
+
+			postsFailed := 0
+			for _, item := range rss.Channel.Item {
+				now := time.Now()
+				var publishedAt sql.NullTime = sql.NullTime{Valid: false}
+				for _, Layout := range layouts {
+					parsed, err := time.Parse(Layout, item.PubDate)
+					if err == nil {
+						publishedAt = sql.NullTime{Time: parsed, Valid: true}
+						break
+					}
+				}
+				title := sql.NullString{Valid: false}
+				if item.Title != "" {
+					title = sql.NullString{String: item.Title, Valid: true}
+				}
+				link := sql.NullString{Valid: false}
+				if item.Link != "" {
+					link = sql.NullString{String: item.Link, Valid: true}
+				}
+				description := sql.NullString{Valid: false}
+				if item.Description != "" {
+					description = sql.NullString{String: item.Description, Valid: true}
+				}
+				
+				params := database.CreatePostParams{
+					ID: uuid.New(),
+					CreatedAt: now,
+					UpdatedAt: now,
+					Title: title,
+					Url: link,
+					Description: description,
+					PublishedAt: publishedAt,
+					FeedID: feed.ID,
+				}
+				_, err := DB.CreatePost(context, params)
+				if err != nil {
+					postsFailed += 1
+				}
+			}
 
 			err = DB.UpdateLastFetchedAt(context, feed.ID)
-			if err != nil {
+			if postsFailed > 0 || err != nil {
 				atomic.AddInt32(&failed, 1)
 			}
 		}(feed)
