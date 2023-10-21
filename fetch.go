@@ -8,6 +8,8 @@ import (
 	"io"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/daniilgaltsev/rss_aggregator/internal/database"
 )
@@ -90,24 +92,29 @@ func updateFeeds(n int32, DB *database.Queries) error {
 		return err
 	}
 
-	failed := 0
+	var wg sync.WaitGroup
+	var failed int32 = 0
 	for _, feed := range feeds {
-		rss, err := fetchAndDecodeFeed(feed)
-		if err != nil {
-			failed += 1
-			DB.UpdateLastFetchedAt(context, feed.ID)
-			continue
-		}
-		fmt.Println("---------")
-		fmt.Println(rss.Channel.Title)
-		fmt.Println(" Number of items:", len(rss.Channel.Item))
+		wg.Add(1)
+		go func(feed database.Feed) {
+			defer wg.Done()
+			rss, err := fetchAndDecodeFeed(feed)
+			if err != nil {
+				atomic.AddInt32(&failed, 1)
+				DB.UpdateLastFetchedAt(context, feed.ID)
+				return
+			}
+			fmt.Println("-----(not thread safe logging of a fetched feed)----")
+			fmt.Println(rss.Channel.Title)
+			fmt.Println(" Number of items:", len(rss.Channel.Item))
 
-		err = DB.UpdateLastFetchedAt(context, feed.ID)
-		if err != nil {
-			failed += 1
-			continue
-		}
+			err = DB.UpdateLastFetchedAt(context, feed.ID)
+			if err != nil {
+				atomic.AddInt32(&failed, 1)
+			}
+		}(feed)
 	}
+	wg.Wait()
 
 	if failed > 0 {
 		return errors.New(fmt.Sprintf("Failed to fetch %d feeds", failed))
