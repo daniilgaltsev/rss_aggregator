@@ -47,6 +47,10 @@ func (config *apiConfig) handleGetFeedFollows(w http.ResponseWriter, r *http.Req
 	handleGetFeedFollows(w, r, config.DB)
 }
 
+func (config *apiConfig) handleGetPosts(w http.ResponseWriter, r *http.Request) {
+	handleGetPosts(w, r, config.DB)
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -113,6 +117,7 @@ func main() {
 	v1Router.Post("/feed_follows", config.PostFeedFollowsHandler)
 	v1Router.Delete("/feed_follows/{feedFollowId}", config.deleteFeedFollowsHandler)
 	v1Router.Get("/feed_follows", config.handleGetFeedFollows)
+	v1Router.Get("/posts", config.handleGetPosts)
 	router.Mount("/v1", v1Router)
 
 
