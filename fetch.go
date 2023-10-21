@@ -2,6 +2,7 @@ package main
 
 
 import (
+	"context"
 	"encoding/xml"
 	"net/http"
 	"io"
@@ -79,4 +80,37 @@ func fetchFeedFromUrl(url string) (string, error) {
 
 
 	return bodyStr, nil
+}
+
+
+func updateFeeds(n int32, DB *database.Queries) error {
+	context := context.Background()
+	feeds, err := DB.GetNextFeedsToFetch(context, n)
+	if err != nil {
+		return err
+	}
+
+	failed := 0
+	for _, feed := range feeds {
+		rss, err := fetchAndDecodeFeed(feed)
+		if err != nil {
+			failed += 1
+			DB.UpdateLastFetchedAt(context, feed.ID)
+			continue
+		}
+		fmt.Println("---------")
+		fmt.Println(rss.Channel.Title)
+		fmt.Println(" Number of items:", len(rss.Channel.Item))
+
+		err = DB.UpdateLastFetchedAt(context, feed.ID)
+		if err != nil {
+			failed += 1
+			continue
+		}
+	}
+
+	if failed > 0 {
+		return errors.New(fmt.Sprintf("Failed to fetch %d feeds", failed))
+	}
+	return nil
 }

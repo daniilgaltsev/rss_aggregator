@@ -6,6 +6,7 @@ import (
     "fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
@@ -66,6 +67,19 @@ func main() {
 		os.Exit(1)
 	}
 	dbQueries := database.New(db)
+
+	fmt.Println("Starting feeds fetching worker...")
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		for {
+			<- ticker.C
+			fmt.Println("Fetching feeds...")
+			err := updateFeeds(10, dbQueries)
+			if err != nil {
+				fmt.Println("Error fetching feeds:", err)
+			}
+		}
+	}()
 
 	fmt.Println("Starting the server...")
 	port := os.Getenv("PORT")
